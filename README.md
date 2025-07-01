@@ -11,11 +11,10 @@ Transform any topic into personalized flashcards with AI. Free, fast, and perfec
 - **AI-Powered Generation** - Create flashcards from any topic using AI
 - **Multiple Input Methods** - Text, file upload (Will be implemrnted soon)
 - **12 Language Support** - English, French, Spanish, German, Italian, Portuguese, Russian, Japanese, Korean, Chinese, Arabic, Hindi
-- **Dark/Light Mode** - Automatic theme switching with user preference
-- **Keyboard Navigation** - Full keyboard support for accessibility
-- **Mobile Responsive** - Works perfectly on all devices
-- **Privacy-First** - No data collection, everything runs locally
-- **Lightning Fast** - Optimized performance with modern tech stack
+- **Keyboard Navigation** - Keyboard support for accessibility
+- **Mobile Responsive** - Works on all devices
+- **Private** - No data collection
+- **Fast** - Optimized performance with modern tech stack
 
 ## Quick Start
 
@@ -26,8 +25,8 @@ Visit [ai-flashcards-7fd.pages.dev](https://ai-flashcards-7fd.pages.dev/) - no i
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/ai-flashcard-generator.git
-   cd ai-flashcard-generator
+   git clone https://github.com/mhdgning131/flashcard.git
+   cd flashcard
    ```
 
 2. **Install dependencies**
@@ -84,7 +83,6 @@ Visit [ai-flashcards-7fd.pages.dev](https://ai-flashcards-7fd.pages.dev/) - no i
 3. **Generate and study:**
    - Click generate to create your flashcards
    - Use keyboard navigation or click to flip cards
-   - Track your progress as you study
 
 ### Keyboard Shortcuts
 
@@ -99,12 +97,12 @@ Visit [ai-flashcards-7fd.pages.dev](https://ai-flashcards-7fd.pages.dev/) - no i
 We welcome contributions! Here's how you can help:
 
 ### Report Bugs
-- Use the [issue tracker](https://github.com/yourusername/ai-flashcard-generator/issues)
+- Use the [issue tracker](https://github.com/mhdgning131/flashcard/issues)
 - Provide detailed reproduction steps
 - Include browser and OS information
 
 ### Suggest Features
-- Check existing [feature requests](https://github.com/yourusername/ai-flashcard-generator/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+- Check existing [feature requests](https://github.com/mhdgning131/flashcard/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 - Open a new issue with the `enhancement` label
 - Describe the feature and its benefits
 
@@ -130,7 +128,7 @@ We welcome contributions! Here's how you can help:
 ## Project Structure
 
 ```
-ai-flashcard-generator/
+flashcard/
 ├── src/
 │   ├── components/          # React components
 │   │   ├── Flashcard.tsx   # Main flashcard component
@@ -177,12 +175,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- [Report Issues](https://github.com/yourusername/ai-flashcard-generator/issues)
-- [Discussions](https://github.com/yourusername/ai-flashcard-generator/discussions)
-- Email: your.email@example.com
+- [Report Issues](https://github.com/mhdgning131/flashcard/issues)
+- [Discussions](https://github.com/mhdgning131/flashcard/discussions)
+- Email: contact@mohamedg.me
 
 ---
 
 Made with care for the learning community
 
-[Try it now!](https://ai-flashcards-7fd.pages.dev/) • [Contribute](#contributing) • [Report Bug](https://github.com/yourusername/ai-flashcard-generator/issues)
+[Try it now!](https://ai-flashcards-7fd.pages.dev/) • [Contribute](#contributing) • [Report Bug](https://github.com/mhdgning131/flashcard/issues)
