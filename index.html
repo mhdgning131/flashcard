@@ -421,40 +421,105 @@
   <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
   <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">
 
-  <!-- Analytics and Tracking (placeholder) -->
+  <!-- Analytics and Tracking -->
   <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-THC2XWKY0G"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'GA_MEASUREMENT_ID', {
+    
+    // Your Google Analytics 4 measurement ID
+    gtag('config', 'G-THC2XWKY0G', {
       page_title: document.title,
       page_location: window.location.href,
       content_group1: 'Education Tools',
-      content_group2: 'AI Flashcards'
+      content_group2: 'AI Flashcards',
+      send_page_view: true,
+      anonymize_ip: true, // GDPR compliance
+      allow_google_signals: false, // Privacy-focused
+      custom_map: {
+        'custom_parameter_1': 'user_engagement_level'
+      }
     });
+
+    // Custom event tracking functions
+    window.trackFlashcardEvent = function(action, cardCount, language, source) {
+      gtag('event', action, {
+        event_category: 'Flashcards',
+        event_label: `${language}_${source}`,
+        value: cardCount,
+        custom_parameter_1: 'engaged_user'
+      });
+    };
+
+    window.trackUserEngagement = function(action, details) {
+      gtag('event', action, {
+        event_category: 'User Engagement',
+        event_label: details,
+        non_interaction: false
+      });
+    };
+
+    window.trackConversion = function(action, value) {
+      gtag('event', 'conversion', {
+        event_category: 'Goals',
+        event_label: action,
+        value: value
+      });
+    };
   </script>
 
-  <!-- Hotjar Tracking (placeholder) -->
+  <!-- Privacy-compliant Analytics -->
   <script>
-    (function(h,o,t,j,a,r){
-      h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
-      h._hjSettings={hjid:123456,hjsv:6};
-      a=o.getElementsByTagName('head')[0];
-      r=o.createElement('script');r.async=1;
-      r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
-      a.appendChild(r);
-    })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
-  </script>
+    // GDPR/CCPA compliance banner (basic implementation)
+    window.showAnalyticsConsent = function() {
+      if (!localStorage.getItem('analytics_consent')) {
+        // Show consent banner - you can style this as needed
+        const banner = document.createElement('div');
+        banner.innerHTML = `
+          <div style="position: fixed; bottom: 20px; left: 20px; right: 20px; background: #1e293b; color: white; padding: 1rem; border-radius: 8px; z-index: 1000; font-size: 14px;">
+            <p>We use analytics to improve your experience. <a href="#privacy" style="color: #60a5fa;">Privacy Policy</a></p>
+            <button onclick="acceptAnalytics()" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-right: 8px; cursor: pointer;">Accept</button>
+            <button onclick="declineAnalytics()" style="background: transparent; color: white; border: 1px solid white; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Decline</button>
+          </div>
+        `;
+        document.body.appendChild(banner.firstElementChild);
+      }
+    };
 
-  <!-- Microsoft Clarity (placeholder) -->
-  <script type="text/javascript">
-    (function(c,l,a,r,i,t,y){
-      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "CLARITY_ID");
+    window.acceptAnalytics = function() {
+      localStorage.setItem('analytics_consent', 'true');
+      gtag('consent', 'update', {
+        analytics_storage: 'granted'
+      });
+      document.querySelector('[style*="position: fixed"]')?.remove();
+    };
+
+    window.declineAnalytics = function() {
+      localStorage.setItem('analytics_consent', 'false');
+      gtag('consent', 'update', {
+        analytics_storage: 'denied'
+      });
+      document.querySelector('[style*="position: fixed"]')?.remove();
+    };
+
+    // Initialize consent
+    if (localStorage.getItem('analytics_consent') === 'true') {
+      gtag('consent', 'update', {
+        analytics_storage: 'granted'
+      });
+    } else if (localStorage.getItem('analytics_consent') === 'false') {
+      gtag('consent', 'update', {
+        analytics_storage: 'denied'
+      });
+    } else {
+      // Default to denied, show banner
+      gtag('consent', 'default', {
+        analytics_storage: 'denied'
+      });
+      setTimeout(showAnalyticsConsent, 2000);
+    }
   </script>
 </head>
 

@@ -4,6 +4,12 @@ import { Flashcard } from './Flashcard';
 import { ArrowLeftIcon, ArrowRightIcon } from './icons';
 import { StorageService } from '../services/storageService';
 
+declare global {
+  interface Window {
+    trackUserEngagement?: (action: string, value: string) => void;
+  }
+}
+
 interface FlashcardViewProps {
   cards: FlashcardData[];
   onCreateNew: () => void;
@@ -14,15 +20,30 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({ cards, onCreateNew
 
   const handleAnswerResponse = useCallback((correct: boolean) => {
     StorageService.updateStats(correct);
+    
+    // Track user engagement with flashcards
+    if (window.trackUserEngagement) {
+      window.trackUserEngagement('flashcard_answered', correct ? 'correct' : 'incorrect');
+    }
   }, []);
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % cards.length);
-  }, [cards.length]);
+    
+    // Track navigation events
+    if (window.trackUserEngagement) {
+      window.trackUserEngagement('navigate_next', `card_${currentIndex + 1}_of_${cards.length}`);
+    }
+  }, [cards.length, currentIndex]);
 
   const goToPrev = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex - 1 + cards.length) % cards.length);
-  }, [cards.length]);
+    
+    // Track navigation events
+    if (window.trackUserEngagement) {
+      window.trackUserEngagement('navigate_previous', `card_${currentIndex + 1}_of_${cards.length}`);
+    }
+  }, [cards.length, currentIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

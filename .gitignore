@@ -6,6 +6,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Exclude sensitive files that might contain auth tokens
+**/*.access.html
+
 # Environment Variables
 .env
 .env.local

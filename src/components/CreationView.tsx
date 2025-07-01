@@ -2,6 +2,13 @@ import React, { useState, useCallback } from 'react';
 import { InputMode, FlashcardOptions, SUPPORTED_LANGUAGES, FLASHCARD_COUNT_OPTIONS } from '../types';
 import { validateContent, sanitizeContent, truncateContent, processUploadedFile, validateUploadedFile } from '../utils/sanitization';
 
+// Extend the Window interface to include the trackFlashcardEvent function
+declare global {
+  interface Window {
+    trackFlashcardEvent?: (action: string, count: number, language: string, mode: InputMode) => void;
+  }
+}
+
 interface CreationViewProps {
   onCreate: (context: string, options: FlashcardOptions) => void;
   error: string | null;
@@ -471,9 +478,14 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
         return;
       }
       
+      // Track flashcard generation event
+      if (window.trackFlashcardEvent) {
+        window.trackFlashcardEvent('generate_flashcards', options.count, options.language, mode);
+      }
+      
       onCreate(trimmedText, options);
     }
-  }, [text, options, onCreate]);
+  }, [text, options, onCreate, mode]);
 
   const placeholderText = {
     [InputMode.DESCRIBE]: "Describe the topic you want to study...",

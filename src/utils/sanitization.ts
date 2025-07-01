@@ -217,7 +217,7 @@ const processPDFFile = async (file: File): Promise<string> => {
       setTimeout(() => reject(new Error('PDF processing timeout')), 30000); // 30 second timeout
     });
 
-    const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
+    const pdf = await Promise.race([loadingTask.promise, timeoutPromise]) as any;
     
     if (!pdf || pdf.numPages === 0) {
       throw new Error('PDF file appears to be empty or corrupted.');
