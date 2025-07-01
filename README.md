@@ -177,7 +177,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Report Issues](https://github.com/mhdgning131/flashcard/issues)
 - [Discussions](https://github.com/mhdgning131/flashcard/discussions)
-- Email: your.email@example.com
+- Email: contact@mohamedg.me
 
 ---
 
