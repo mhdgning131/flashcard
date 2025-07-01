@@ -11,11 +11,10 @@ Transform any topic into personalized flashcards with AI. Free, fast, and perfec
 - **AI-Powered Generation** - Create flashcards from any topic using AI
 - **Multiple Input Methods** - Text, file upload (Will be implemrnted soon)
 - **12 Language Support** - English, French, Spanish, German, Italian, Portuguese, Russian, Japanese, Korean, Chinese, Arabic, Hindi
-- **Dark/Light Mode** - Automatic theme switching with user preference
-- **Keyboard Navigation** - Full keyboard support for accessibility
-- **Mobile Responsive** - Works perfectly on all devices
-- **Privacy-First** - No data collection, everything runs locally
-- **Lightning Fast** - Optimized performance with modern tech stack
+- **Keyboard Navigation** - Keyboard support for accessibility
+- **Mobile Responsive** - Works on all devices
+- **Private** - No data collection
+- **Fast** - Optimized performance with modern tech stack
 
 ## Quick Start
 
@@ -84,7 +83,6 @@ Visit [ai-flashcards-7fd.pages.dev](https://ai-flashcards-7fd.pages.dev/) - no i
 3. **Generate and study:**
    - Click generate to create your flashcards
    - Use keyboard navigation or click to flip cards
-   - Track your progress as you study
 
 ### Keyboard Shortcuts
 
