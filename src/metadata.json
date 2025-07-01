@@ -1,0 +1,5 @@
+{
+    "name": "AI Flashcard Generator",
+    "description": "An interactive flashcard application that uses AI to generate educational content from a topic, pasted text, or an uploaded file. Features 3D card flip animations and keyboard navigation.",
+    "requestFramePermissions": []
+  }

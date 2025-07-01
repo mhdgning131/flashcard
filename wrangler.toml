@@ -1,0 +1,17 @@
+name = "ai-flashcards-worker"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[env.production.vars]
+# Add your environment variables here
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+[env.development]
+name = "ai-flashcards-worker-dev"
+
+[env.development.vars]
+# Development environment variables

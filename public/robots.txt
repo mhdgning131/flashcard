@@ -1,0 +1,87 @@
+# Robots.txt for AI Flashcard Generator
+# Ultimate SEO-optimized robots.txt
+
+User-agent: *
+Allow: /
+
+# Allow all major search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 2
+
+User-agent: DuckDuckBot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Baiduspider
+Allow: /
+Crawl-delay: 2
+
+User-agent: YandexBot
+Allow: /
+Crawl-delay: 1
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+# Block problematic bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# Block API endpoints from indexing
+Disallow: /api/
+Disallow: /_next/
+Disallow: /src/
+Disallow: /node_modules/
+Disallow: /.git/
+Disallow: /.env
+Disallow: /package.json
+Disallow: /vite.config.ts
+Disallow: /tsconfig.json
+
+# Allow important resources
+Allow: /icons/
+Allow: /screenshots/
+Allow: /images/
+Allow: /favicon*
+Allow: /apple-touch-icon*
+Allow: /site.webmanifest
+Allow: /browserconfig.xml
+Allow: /sw.js
+
+# Sitemap location
+Sitemap: https://ai-flashcards-7fd.pages.dev/sitemap.xml
+Sitemap: https://ai-flashcards-7fd.pages.dev/sitemap-images.xml
+Sitemap: https://ai-flashcards-7fd.pages.dev/sitemap-news.xml
+
+# Host directive for preferred domain
+Host: https://ai-flashcards.app

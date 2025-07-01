@@ -1,0 +1,75 @@
+{
+  "name": "ai-flashcard-generator",
+  "version": "1.0.0",
+  "description": "Transform any topic into personalized flashcards with AI. Free, fast, and perfect for students, professionals, and lifelong learners.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:backend": "nodemon backend/server.js",
+    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\"",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "flashcards",
+    "ai",
+    "education",
+    "learning",
+    "study-tools",
+    "artificial-intelligence",
+    "react",
+    "typescript",
+    "educational-technology",
+    "spaced-repetition",
+    "student-tools",
+    "memory-training"
+  ],
+  "author": {
+    "name": "Mohamed G.",
+    "email": "your.email@example.com",
+    "url": "https://github.com/yourusername"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/ai-flashcard-generator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/ai-flashcard-generator/issues"
+  },
+  "homepage": "https://ai-flashcards-7fd.pages.dev",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.44.1",
+    "@types/pdfjs-dist": "^2.10.377",
+    "@vitejs/plugin-react": "^4.6.0",
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2",
+    "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "@google/genai": "^1.7.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.5",
+    "docx-preview": "^0.3.5",
+    "dompurify": "^3.2.6",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "framer-motion": "^12.20.1",
+    "helmet": "^7.1.0",
+    "jsdom": "^23.0.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.525.0",
+    "mammoth": "^1.9.1",
+    "pdfjs-dist": "^5.3.31",
+    "pizzip": "^3.2.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "rollup": "^3.28.1",
+    "tailwind-merge": "^3.3.1"
+  }
+}
