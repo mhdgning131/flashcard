@@ -25,8 +25,8 @@ Visit [ai-flashcards-7fd.pages.dev](https://ai-flashcards-7fd.pages.dev/) - no i
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/ai-flashcard-generator.git
-   cd ai-flashcard-generator
+   git clone https://github.com/mhdgning131/flashcard.git
+   cd flashcard
    ```
 
 2. **Install dependencies**
@@ -97,12 +97,12 @@ Visit [ai-flashcards-7fd.pages.dev](https://ai-flashcards-7fd.pages.dev/) - no i
 We welcome contributions! Here's how you can help:
 
 ### Report Bugs
-- Use the [issue tracker](https://github.com/yourusername/ai-flashcard-generator/issues)
+- Use the [issue tracker](https://github.com/mhdgning131/flashcard/issues)
 - Provide detailed reproduction steps
 - Include browser and OS information
 
 ### Suggest Features
-- Check existing [feature requests](https://github.com/yourusername/ai-flashcard-generator/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+- Check existing [feature requests](https://github.com/mhdgning131/flashcard/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 - Open a new issue with the `enhancement` label
 - Describe the feature and its benefits
 
@@ -128,7 +128,7 @@ We welcome contributions! Here's how you can help:
 ## Project Structure
 
 ```
-ai-flashcard-generator/
+flashcard/
 ├── src/
 │   ├── components/          # React components
 │   │   ├── Flashcard.tsx   # Main flashcard component
@@ -175,12 +175,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- [Report Issues](https://github.com/yourusername/ai-flashcard-generator/issues)
-- [Discussions](https://github.com/yourusername/ai-flashcard-generator/discussions)
+- [Report Issues](https://github.com/mhdgning131/flashcard/issues)
+- [Discussions](https://github.com/mhdgning131/flashcard/discussions)
 - Email: your.email@example.com
 
 ---
 
 Made with care for the learning community
 
-[Try it now!](https://ai-flashcards-7fd.pages.dev/) • [Contribute](#contributing) • [Report Bug](https://github.com/yourusername/ai-flashcard-generator/issues)
+[Try it now!](https://ai-flashcards-7fd.pages.dev/) • [Contribute](#contributing) • [Report Bug](https://github.com/mhdgning131/flashcard/issues)
