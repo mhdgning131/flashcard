@@ -1,8 +1,9 @@
-import { AppSettings, StudyStats, ThemeMode } from '../types';
+import { AppSettings, StudyStats, ThemeMode, FlashcardData, SavedFlashcardSet } from '../types';
 
 const STORAGE_KEYS = {
   SETTINGS: 'flashcards_settings',
   STATS: 'flashcards_stats',
+  SAVED_SETS: 'flashcards_saved_sets',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -65,5 +66,53 @@ export class StorageService {
       currentStreak: correct ? stats.currentStreak + 1 : 0,
     };
     this.saveStats(updatedStats);
+  }
+
+  static getSavedFlashcardSets(): SavedFlashcardSet[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.SAVED_SETS);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static saveFlashcardSet(name: string, cards: FlashcardData[], language: string, count: number): SavedFlashcardSet {
+    const sets = this.getSavedFlashcardSets();
+    
+    // Create new set with unique ID
+    const newSet: SavedFlashcardSet = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+      name,
+      cards,
+      createdAt: Date.now(),
+      language,
+      count
+    };
+    
+    // Add to beginning of array (newest first)
+    sets.unshift(newSet);
+    
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEYS.SAVED_SETS, JSON.stringify(sets));
+    
+    return newSet;
+  }
+
+  static getFlashcardSet(id: string): SavedFlashcardSet | null {
+    const sets = this.getSavedFlashcardSets();
+    return sets.find(set => set.id === id) || null;
+  }
+
+  static deleteFlashcardSet(id: string): boolean {
+    const sets = this.getSavedFlashcardSets();
+    const newSets = sets.filter(set => set.id !== id);
+    
+    if (newSets.length !== sets.length) {
+      localStorage.setItem(STORAGE_KEYS.SAVED_SETS, JSON.stringify(newSets));
+      return true;
+    }
+    
+    return false;
   }
 }

@@ -1,7 +1,7 @@
 import { FlashcardData, FlashcardOptions } from "../types";
 
 // Use Cloudflare Worker URL for production, localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ai-flashcards-worker.gningmoustapha078.workers.dev/api';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'https://ai-flashcards-worker.gningmoustapha078.workers.dev/api';
 
 export const generateFlashcards = async (context: string, options: FlashcardOptions): Promise<FlashcardData[]> => {
   try {
@@ -26,7 +26,8 @@ export const generateFlashcards = async (context: string, options: FlashcardOpti
       body: JSON.stringify({ 
         context: context.trim(),
         language: options.language,
-        count: options.count
+        count: options.count,
+        level: options.level
       }),
     });
 

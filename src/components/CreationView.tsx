@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { InputMode, FlashcardOptions, SUPPORTED_LANGUAGES, FLASHCARD_COUNT_OPTIONS } from '../types';
+import { InputMode, FlashcardOptions, SUPPORTED_LANGUAGES, FLASHCARD_COUNT_OPTIONS, DIFFICULTY_LEVELS } from '../types';
 import { validateContent, sanitizeContent, truncateContent, processUploadedFile, validateUploadedFile } from '../utils/sanitization';
 
 // Extend the Window interface to include the trackFlashcardEvent function
@@ -431,7 +431,8 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [options, setOptions] = useState<FlashcardOptions>({
     language: 'en',
-    count: 10
+    count: 10,
+    level: 'intermediate'
   });
 
   const handleTextChange = (newText: string) => {
@@ -504,7 +505,7 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
         <h1 className="text-4xl sm:text-5xl font-light text-slate-900 dark:text-white mb-4 tracking-tight">
           Create Flashcards
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-lg font-light max-w-xl mx-auto leading-relaxed">
+        <p className="hidden sm:block text-slate-500 dark:text-slate-400 text-lg font-light max-w-xl mx-auto leading-relaxed">
           Transform any topic into personalized study cards
         </p>
       </div>
@@ -512,7 +513,7 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
       {/* Compact Options Bar - Reduced padding and spacing */}
       <div className="flex-shrink-0">
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/30 dark:border-slate-700/30 rounded-xl shadow-sm p-4">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-4">
             {/* Language Selector - More compact */}
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
@@ -545,7 +546,41 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
             </div>
 
             {/* Compact Divider */}
-            <div className="hidden sm:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+            <div className="hidden lg:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+
+            {/* Level Selector - New */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Level</span>
+              </div>
+              
+              <div className="relative">
+                <select
+                  value={options.level}
+                  onChange={(e) => setOptions({ ...options, level: e.target.value })}
+                  className="appearance-none bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white border border-slate-200/50 dark:border-slate-600/50 rounded-lg px-3 py-2 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-400/50 focus:border-transparent transition-all duration-200 cursor-pointer hover:bg-white dark:hover:bg-slate-700"
+                >
+                  {DIFFICULTY_LEVELS.map((level) => (
+                    <option key={level.code} value={level.code} title={level.description}>
+                      {level.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Compact Divider */}
+            <div className="hidden lg:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
 
             {/* Card Count Selector - More compact */}
             <div className="flex items-center space-x-3">

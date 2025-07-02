@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
 const app = express();
@@ -42,7 +42,7 @@ const createFlashcardsLimiter = rateLimit({
 
 // Input validation middleware
 const validateInput = (req, res, next) => {
-  const { context, language, count } = req.body;
+  const { context, language, count, level } = req.body;
   
   if (!context || typeof context !== 'string') {
     return res.status(400).json({ error: 'Invalid context provided' });
@@ -70,6 +70,16 @@ const validateInput = (req, res, next) => {
   if (!count || typeof count !== 'number' || count < 5 || count > 20) {
     return res.status(400).json({ error: 'Invalid count. Please choose between 5 and 20 flashcards.' });
   }
+
+  // Validate level parameter
+  if (!level || typeof level !== 'string') {
+    return res.status(400).json({ error: 'Invalid difficulty level provided' });
+  }
+
+  const supportedLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
+  if (!supportedLevels.includes(level)) {
+    return res.status(400).json({ error: 'Invalid difficulty level. Please choose from: beginner, intermediate, advanced, expert.' });
+  }
   
   // Basic sanitization - remove potential script tags
   const sanitizedContext = context.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
@@ -85,10 +95,10 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const genAI = new GoogleGenerativeAI(API_KEY);
 
-// Language-specific instructions
-const getLanguageInstruction = (language) => {
+// Enhanced language-specific instructions with stronger difficulty level enforcement
+const getSystemInstruction = (language, level) => {
   const languageMap = {
     'en': 'English',
     'fr': 'French (Français)',
@@ -106,41 +116,122 @@ const getLanguageInstruction = (language) => {
 
   const languageName = languageMap[language] || 'English';
   
-  return `You are an expert in creating educational materials. Based on the following text or topic, generate exactly the requested number of flashcards in ${languageName}. Each flashcard must have a 'term' (a concise word or question) and a 'definition' (a more detailed explanation or answer).
+  const baseInstruction = `You are an expert educational content creator. You MUST create flashcards in ${languageName} language only. Both the term and definition must be in ${languageName}.
 
-IMPORTANT INSTRUCTIONS:
-- Generate flashcards in ${languageName} language only
-- Both 'term' and 'definition' must be in ${languageName}
-- Create exactly the requested number of flashcards
-- Respond ONLY with a valid JSON array of objects
-- Do not include any other text, explanations, or markdown fences
-- The JSON must be in this exact format: [{"term": "string", "definition": "string"}, ...]
-- Ensure all content is educational and appropriate
-- Do not generate content that could be harmful, offensive, or inappropriate`;
+CRITICAL: You must respond ONLY with a valid JSON array. No markdown fences, no explanations, no additional text.
+
+Format: [{"term": "string", "definition": "string"}, ...]`;
+
+  const levelInstructions = {
+    'beginner': `${baseInstruction}
+
+DIFFICULTY LEVEL: BEGINNER
+- Use simple, everyday language
+- Focus on basic definitions and fundamental concepts
+- Avoid technical jargon
+- Explain concepts as if teaching a complete newcomer
+- Use analogies and simple examples`,
+
+    'intermediate': `${baseInstruction}
+
+DIFFICULTY LEVEL: INTERMEDIATE  
+- Use moderate complexity and some technical terminology
+- Include important concepts for someone with basic knowledge
+- Provide detailed explanations with context
+- Balance accessibility with depth`,
+
+    'advanced': `${baseInstruction}
+
+DIFFICULTY LEVEL: ADVANCED
+- Use sophisticated vocabulary and complex concepts
+- Include technical details and specialized terminology
+- Assume substantial background knowledge
+- Focus on nuanced understanding and advanced applications`,
+
+    'expert': `${baseInstruction}
+
+DIFFICULTY LEVEL: EXPERT - MANDATORY REQUIREMENTS:
+
+==> CRITICAL: You MUST NOT generate any basic, intermediate, or simple content. 
+==> REJECT any attempt to create beginner-level flashcards.
+==> Every single flashcard MUST be at graduate/doctoral/professional level.
+
+EXPERT LEVEL REQUIREMENTS (NON-NEGOTIABLE):
+==> Use ONLY highly specialized technical terminology
+==> Include cutting-edge research concepts and methodologies  
+==> Assume PhD-level or professional expertise in the field
+==> Use advanced mathematical formulations where applicable
+==> Include complex theories, specialized procedures, and professional jargon
+==> Reference advanced research, specialized equipment, or expert methodologies
+==> Use terminology that only field experts would understand
+==> Include complex interdisciplinary concepts
+==> Focus on latest developments, advanced techniques, expert-only knowledge
+
+EXAMPLES OF EXPERT-LEVEL TERMS:
+- Technical: "Quantum decoherence", "Epigenetic modifications", "Stochastic gradient descent"
+- Medical: "Pharmacokinetic parameters", "Immunohistochemistry protocols", "Cytokine storm cascades"  
+- Engineering: "Finite element analysis", "Signal-to-noise ratio optimization", "Thermal conductivity coefficients"
+- Research: "Meta-analytical frameworks", "Confounding variable control", "Statistical power calculations"
+
+==> FORBIDDEN: Simple definitions, basic concepts, introductory explanations
+==> NO basic vocabulary or elementary concepts
+==> NO "introduction to..." or beginner-friendly content
+
+If the provided context seems too basic for expert-level flashcards, you must elevate it to expert level by focusing on the most advanced aspects, latest research, technical implementations, or professional applications.`
+  };
+
+  return levelInstructions[level] || levelInstructions['intermediate'];
+};
+
+// Create enhanced user prompt based on level
+const getUserPrompt = (context, count, level) => {
+  const baseParts = [
+    `Create exactly ${count} flashcards about the following content:`,
+    `Content: ${context}`
+  ];
+
+  if (level === 'expert') {
+    baseParts.push(`
+==> EXPERT LEVEL ENFORCEMENT:
+- Transform ANY basic content into expert-level concepts
+- Focus on the most advanced, technical, and specialized aspects
+- Use professional terminology and cutting-edge knowledge
+- Assume extensive expertise and advanced education
+- Include complex methodologies, advanced theories, or specialized procedures
+- Every flashcard must be at graduate/professional level or higher`);
+  }
+
+  return baseParts.join('\n\n');
 };
 
 // API endpoint for flashcard generation
 app.post('/api/generate-flashcards', createFlashcardsLimiter, validateInput, async (req, res) => {
   try {
-    const { context, language, count } = req.body;
+    const { context, language, count, level } = req.body;
     
-    console.log(`Generating ${count} flashcards in ${language} for context length: ${context.length}`);
+    console.log(`Generating ${count} flashcards in ${language} at ${level} level for context length: ${context.length}`);
     
-    const systemInstruction = getLanguageInstruction(language);
-    const prompt = `Create exactly ${count} flashcards about: ${context}`;
-    
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-04-17",
-      contents: prompt,
-      config: {
-        systemInstruction: systemInstruction,
+    // Get the correct model (use the most recent available)
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash",
+      systemInstruction: getSystemInstruction(language, level),
+      generationConfig: {
+        temperature: level === 'expert' ? 0.3 : 0.7, // Lower temperature for expert level for more consistent technical content
+        maxOutputTokens: 4000,
         responseMimeType: "application/json",
-        temperature: 0.7,
       },
     });
 
-    let jsonStr = response.text.trim();
-    console.log('Raw AI response:', jsonStr);
+    const userPrompt = getUserPrompt(context, count, level);
+    
+    console.log('System Instruction Length:', getSystemInstruction(language, level).length);
+    console.log('User Prompt Length:', userPrompt.length);
+    
+    const result = await model.generateContent(userPrompt);
+    const response = await result.response;
+    let jsonStr = response.text().trim();
+    
+    console.log('Raw AI response:', jsonStr.substring(0, 500) + '...');
 
     // Enhanced JSON cleaning and validation
     // Remove markdown fences if present
@@ -163,18 +254,16 @@ app.post('/api/generate-flashcards', createFlashcardsLimiter, validateInput, asy
       .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
       .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Quote unquoted keys
       .replace(/:\s*'([^']*?)'/g, ': "$1"') // Replace single quotes with double quotes
-      .replace(/\n/g, '\\n') // Escape newlines in strings
-      .replace(/\r/g, '\\r') // Escape carriage returns
-      .replace(/\t/g, '\\t'); // Escape tabs
-
-    console.log('Cleaned JSON string:', jsonStr);
+      .replace(/\\n/g, '\\\\n') // Escape newlines properly
+      .replace(/\\r/g, '\\\\r') // Escape carriage returns
+      .replace(/\\t/g, '\\\\t'); // Escape tabs
 
     let parsedData;
     try {
       parsedData = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError.message);
-      console.error('Problematic JSON:', jsonStr);
+      console.error('Problematic JSON:', jsonStr.substring(0, 1000));
       
       // Try to extract valid flashcards using regex as fallback
       const termDefMatches = jsonStr.match(/"term"\s*:\s*"([^"]*?)"\s*,\s*"definition"\s*:\s*"([^"]*?)"/g);
@@ -211,6 +300,90 @@ app.post('/api/generate-flashcards', createFlashcardsLimiter, validateInput, asy
       throw new Error("No valid flashcards found in AI response");
     }
 
+    // Expert level validation - check if content is actually expert level
+    if (level === 'expert') {
+      const expertKeywords = [
+        'advanced', 'sophisticated', 'complex', 'specialized', 'technical', 'methodology',
+        'parameter', 'protocol', 'algorithm', 'optimization', 'coefficient', 'analysis',
+        'synthesis', 'implementation', 'configuration', 'calibration', 'specification',
+        'framework', 'architecture', 'paradigm', 'mechanism', 'phenomenon', 'theoretical',
+        'quantum', 'differential', 'molecular', 'computational', 'neural', 'cryptographic',
+        'stochastic', 'multivariate', 'probabilistic', 'algorithmic', 'thermodynamic'
+      ];
+
+      const bannedSimpleTerms = [
+        'basic', 'simple', 'easy', 'introduction to', 'beginner', 'fundamental',
+        'overview', 'elementary', 'starting', 'first step', 'learn about'
+      ];
+      
+      const hasExpertContent = validCards.every(card => {
+        const combined = (card.term + ' ' + card.definition).toLowerCase();
+        
+        // Check for banned simple terms that should never appear in expert content
+        const hasSimpleTerms = bannedSimpleTerms.some(term => 
+          combined.includes(term)
+        );
+        
+        if (hasSimpleTerms) return false;
+        
+        // More stringent criteria for expert content:
+        // 1. Must contain at least 2 expert keywords
+        // 2. Definition must be substantially detailed (>150 chars)
+        const expertKeywordCount = expertKeywords.filter(keyword => 
+          combined.includes(keyword)
+        ).length;
+        
+        return expertKeywordCount >= 2 && card.definition.length > 150;
+      });
+      
+      if (!hasExpertContent) {
+        console.warn('Generated content is not expert level, regenerating...');
+        
+        // Try one more time with even stronger emphasis on expert-level content
+        const enhancedPrompt = getUserPrompt(context, count, level) + `\n\nCRITICAL REQUIREMENT: Previous attempt was not expert level. This MUST be graduate/professional level content with advanced terminology, specialized concepts, and technical depth. DO NOT simplify content. DO NOT use beginner-friendly language.`;
+        
+        try {
+          console.log('Attempting regeneration with enhanced expert prompting...');
+          const regenResult = await model.generateContent(enhancedPrompt);
+          const regenResponse = await regenResult.response;
+          let regenJsonStr = regenResponse.text().trim();
+          
+          // Same cleaning and validation as before
+          const regenMatch = regenJsonStr.match(fenceRegex);
+          if (regenMatch && regenMatch[2]) {
+            regenJsonStr = regenMatch[2].trim();
+          }
+          
+          const regenJsonStartMatch = regenJsonStr.match(/\[.*\]/s);
+          if (regenJsonStartMatch) {
+            regenJsonStr = regenJsonStartMatch[0];
+          }
+          
+          // Apply the same JSON cleanup
+          regenJsonStr = regenJsonStr
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+            .replace(/,(\s*[}\]])/g, '$1')
+            .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
+            .replace(/:\s*'([^']*?)'/g, ': "$1"')
+            .replace(/\\n/g, '\\\\n')
+            .replace(/\\r/g, '\\\\r')
+            .replace(/\\t/g, '\\\\t');
+            
+          // Try to parse and validate regenerated content
+          const regenParsedData = JSON.parse(regenJsonStr);
+          
+          if (Array.isArray(regenParsedData) && regenParsedData.length > 0) {
+            // Replace the original data with regenerated data
+            parsedData = regenParsedData;
+            console.log('Successfully regenerated higher-quality expert content');
+          }
+        } catch (regenError) {
+          console.error('Error during content regeneration:', regenError.message);
+          // Continue with original content if regeneration fails
+        }
+      }
+    }
+
     // Ensure we have the requested number of cards (or as close as possible)
     const finalCards = validCards.slice(0, count);
 
@@ -220,13 +393,22 @@ app.post('/api/generate-flashcards', createFlashcardsLimiter, validateInput, asy
       definition: card.definition.trim().substring(0, 2000).replace(/[<>]/g, '') // Remove potential HTML tags
     }));
 
-    console.log(`Successfully generated ${sanitizedCards.length} flashcards in ${language}`);
+    console.log(`Successfully generated ${sanitizedCards.length} flashcards in ${language} at ${level} level`);
+    
+    // Log first card for debugging expert level
+    if (sanitizedCards.length > 0) {
+      console.log('Sample flashcard:', {
+        term: sanitizedCards[0].term.substring(0, 50) + '...',
+        definition: sanitizedCards[0].definition.substring(0, 100) + '...'
+      });
+    }
+    
     res.json({ flashcards: sanitizedCards });
 
   } catch (error) {
     console.error("Error generating flashcards:", error);
     
-    if (error.message.includes('API')) {
+    if (error.message.includes('API') || error.message.includes('quota')) {
       res.status(503).json({ error: 'AI service temporarily unavailable. Please try again later.' });
     } else if (error.message.includes('JSON') || error.message.includes('parse')) {
       res.status(500).json({ error: 'The AI generated an invalid response. Please try rephrasing your input or try again.' });

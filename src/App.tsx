@@ -3,17 +3,24 @@ import { CreationView } from './components/CreationView';
 import { FlashcardView } from './components/FlashcardView';
 import { Header } from './components/Header';
 import { Loader } from './components/Loader';
+import { SavedSets } from './components/SavedSets';
 import { generateFlashcards } from './services/geminiService';
 import { StorageService } from './services/storageService';
-import { FlashcardData, FlashcardOptions, ThemeMode } from './types';
+import { FlashcardData, FlashcardOptions, ThemeMode, SavedFlashcardSet } from './types';
+
+// Session storage key for current cards
+const SESSION_STORAGE_KEY = 'flashcards_current_session';
 
 const App: React.FC = () => {
   const [cards, setCards] = useState<FlashcardData[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [currentOptions, setCurrentOptions] = useState<FlashcardOptions | null>(null);
+  const [showSavedSets, setShowSavedSets] = useState<boolean>(false);
+  const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
 
-  // Load settings on mount
+  // Load settings and current session on mount
   useEffect(() => {
     const settings = StorageService.getSettings();
     setTheme(settings.theme);
@@ -23,6 +30,23 @@ const App: React.FC = () => {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+
+    // Restore session state on page load
+    try {
+      const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (sessionData) {
+        const { savedCards, savedOptions, cardIndex = 0 } = JSON.parse(sessionData);
+        if (savedCards && Array.isArray(savedCards) && savedCards.length > 0) {
+          setCards(savedCards);
+          setCurrentCardIndex(cardIndex);
+          if (savedOptions) {
+            setCurrentOptions(savedOptions);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring session:', error);
     }
 
     // Listen for system theme changes
@@ -49,6 +73,21 @@ const App: React.FC = () => {
       mediaQuery.removeEventListener('change', handleSystemThemeChange);
     };
   }, []);
+
+  // Save cards to session storage whenever they change
+  useEffect(() => {
+    if (cards && cards.length > 0) {
+      try {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+          savedCards: cards,
+          savedOptions: currentOptions,
+          cardIndex: currentCardIndex
+        }));
+      } catch (error) {
+        console.error('Error saving session:', error);
+      }
+    }
+  }, [cards, currentOptions, currentCardIndex]);
 
   const handleThemeToggle = useCallback(() => {
     console.log('Theme toggle clicked, current theme:', theme);
@@ -93,6 +132,10 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setCards(null);
+    setCurrentOptions(options);
+    
+    // Clear any previous session data when creating new cards
+    localStorage.removeItem(SESSION_STORAGE_KEY);
     
     try {
       const generatedCards = await generateFlashcards(context, options);
@@ -127,6 +170,51 @@ const App: React.FC = () => {
     setCards(null);
     setError(null);
     setIsLoading(false);
+    setCurrentOptions(null);
+    setCurrentCardIndex(0);
+    
+    // Clear session data when intentionally creating a new set
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+  }, []);
+
+  const handleToggleSavedSets = useCallback(() => {
+    setShowSavedSets(prev => !prev);
+  }, []);
+
+  const handleLoadSavedSet = useCallback((set: SavedFlashcardSet) => {
+    setCards(set.cards);
+    setCurrentCardIndex(0); // Reset to first card when loading a saved set
+    setCurrentOptions({
+      language: set.language,
+      count: set.count,
+      level: 'intermediate' // Default level as it's not stored
+    });
+    setShowSavedSets(false);
+    
+    // Save loaded set to session storage
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        savedCards: set.cards,
+        savedOptions: {
+          language: set.language,
+          count: set.count,
+          level: 'intermediate'
+        },
+        cardIndex: 0 // Start from the first card
+      }));
+    } catch (error) {
+      console.error('Error saving loaded set to session:', error);
+    }
+    
+    // Track loading of saved set
+    if (window.trackUserEngagement) {
+      window.trackUserEngagement('saved_set_loaded', set.name);
+    }
+  }, []);
+
+  // Track card index changes from the FlashcardView component
+  const handleCardIndexChange = useCallback((index: number) => {
+    setCurrentCardIndex(index);
   }, []);
 
   const renderContent = () => {
@@ -135,10 +223,6 @@ const App: React.FC = () => {
         <div className="flex flex-col items-center justify-center text-center flex-1 min-h-[60vh]">
           <div className="relative">
             <Loader />
-            {/* Apple-style loading context */}
-            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-slate-900 dark:bg-white rounded-full animate-pulse"></div>
-            </div>
           </div>
           <div className="mt-8 space-y-3">
             <h2 className="text-2xl font-light text-slate-900 dark:text-white tracking-tight">
@@ -153,7 +237,16 @@ const App: React.FC = () => {
     }
 
     if (cards) {
-      return <FlashcardView cards={cards} onCreateNew={handleCreateNew} />;
+      return <FlashcardView 
+        cards={cards} 
+        onCreateNew={handleCreateNew} 
+        options={currentOptions ? {
+          language: currentOptions.language,
+          count: currentOptions.count
+        } : undefined}
+        initialCardIndex={currentCardIndex}
+        onCardIndexChange={handleCardIndexChange}
+      />;
     }
 
     return <CreationView onCreate={handleCreateFlashcards} error={error} />;
@@ -161,7 +254,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white transition-all duration-300">
-      {/* Apple-style background texture */}
+      {/* Background texture */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-100/20 via-transparent to-slate-200/20 dark:from-slate-700/10 dark:via-transparent dark:to-slate-800/10"></div>
       
       <div className="relative min-h-screen flex flex-col">
@@ -171,6 +264,7 @@ const App: React.FC = () => {
             onThemeToggle={handleThemeToggle}
             showBackButton={!!cards}
             onBackClick={cards ? handleCreateNew : undefined}
+            onShowSavedSets={handleToggleSavedSets}
           />
           
           <div className="flex-1 flex flex-col min-h-0">
@@ -180,6 +274,13 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {showSavedSets && (
+        <SavedSets
+          onLoadSet={handleLoadSavedSet}
+          onClose={() => setShowSavedSets(false)}
+        />
+      )}
     </div>
   );
 };

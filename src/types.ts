@@ -3,9 +3,19 @@ export interface FlashcardData {
     definition: string;
   }
   
+  export interface SavedFlashcardSet {
+    id: string;
+    name: string;
+    cards: FlashcardData[];
+    createdAt: number; // timestamp
+    language: string;
+    count: number;
+  }
+  
   export interface FlashcardOptions {
     language: string;
     count: number;
+    level: string;
   }
   
   export interface StudyStats {
@@ -44,3 +54,10 @@ export interface FlashcardData {
   ];
   
   export const FLASHCARD_COUNT_OPTIONS = [5, 8, 10, 12, 15, 20];
+
+  export const DIFFICULTY_LEVELS = [
+    { code: 'beginner', name: 'Beginner', description: 'Basic concepts and simple explanations' },
+    { code: 'intermediate', name: 'Intermediate', description: 'Moderate complexity with detailed explanations' },
+    { code: 'advanced', name: 'Advanced', description: 'Complex concepts with comprehensive details' },
+    { code: 'expert', name: 'Expert', description: 'Extremely deep and highly technical and specialized terminology' },
+  ];
