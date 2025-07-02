@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FlashcardData } from '../types';
+import { FlashcardData, InputMode } from '../types';
 import { Flashcard } from './Flashcard';
 import { ArrowLeftIcon, ArrowRightIcon } from './icons';
 import { StorageService } from '../services/storageService';
@@ -13,7 +13,13 @@ declare global {
 interface FlashcardViewProps {
   cards: FlashcardData[];
   onCreateNew: () => void;
-  options?: { language: string; count: number; };
+  options?: { 
+    language: string; 
+    count: number; 
+    // Ajouter les nouvelles propriétés pour le prompt original
+    originalPrompt?: string;
+    inputMode?: InputMode;
+  };
   initialCardIndex?: number;
   onCardIndexChange?: (index: number) => void;
 }
@@ -44,24 +50,40 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({
     const language = options?.language || 'en';
     const count = options?.count || cards.length;
     
-    StorageService.saveFlashcardSet(setName.trim(), cards, language, count);
-    setSaveSuccess(true);
-    setSetName('');
+    // Récupérer le prompt original et le mode d'entrée depuis les options actuelles
+    const originalPrompt = options?.originalPrompt;
+    const inputMode = options?.inputMode;
     
-    // Hide success message after 2 seconds
-    setTimeout(() => {
-      setSaveSuccess(false);
-      setIsSaveModalOpen(false);
-    }, 2000);
+    // Use the enhanced storage service with error handling
+    const result = StorageService.saveFlashcardSet(setName.trim(), cards, language, count, originalPrompt, inputMode);
     
-    // Track save event
-    if (window.trackUserEngagement) {
-      window.trackUserEngagement('flashcard_set_saved', `cards_${cards.length}`);
+    if (result.success) {
+      setSaveSuccess(true);
+      setSetName('');
+      
+      // Hide success message after 2 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setIsSaveModalOpen(false);
+      }, 2000);
+      
+      // Track save event
+      if (window.trackUserEngagement) {
+        window.trackUserEngagement('flashcard_set_saved', `cards_${cards.length}`);
+      }
+    } else {
+      // Handle error - show error message to user
+      alert(`Failed to save set: ${result.error}`);
+      console.error('Save error:', result.error, result.code);
     }
   }, [cards, setName, options]);
 
   const handleAnswerResponse = useCallback((correct: boolean) => {
-    StorageService.updateStats(correct);
+    const result = StorageService.updateStats(correct);
+    
+    if (!result.success) {
+      console.error('Failed to update stats:', result.error);
+    }
     
     // Track user engagement with flashcards
     if (window.trackUserEngagement) {

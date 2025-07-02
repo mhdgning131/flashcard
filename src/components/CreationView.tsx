@@ -12,6 +12,9 @@ declare global {
 interface CreationViewProps {
   onCreate: (context: string, options: FlashcardOptions) => void;
   error: string | null;
+  // Nouveaux props pour restaurer le prompt et le mode d'entrée
+  initialPrompt?: string;
+  initialInputMode?: InputMode;
 }
 
 // Intelligent Segmented Control with professional design
@@ -209,7 +212,8 @@ const SmartTextArea: React.FC<{
   onChange: (value: string) => void;
   placeholder: string;
   mode: InputMode;
-}> = ({ value, onChange, placeholder, mode }) => {
+  onModeChange: (mode: InputMode) => void;
+}> = ({ value, onChange, placeholder, mode, onModeChange }) => {
   const [charCount, setCharCount] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const maxChars = 50000;
@@ -223,7 +227,7 @@ const SmartTextArea: React.FC<{
 
   const getSmartPlaceholder = () => {
     const examples = {
-      [InputMode.DESCRIBE]: "Example: Advanced calculus concepts including derivatives, integrals, and their real-world applications in physics and engineering",
+      [InputMode.DESCRIBE]: "Advanced calculus concepts including derivatives, integrals, and their real-world applications in physics and engineering",
       [InputMode.PASTE]: "Paste your study material here - articles, lecture notes, textbook chapters, or any educational content you'd like to turn into flashcards",
       [InputMode.UPLOAD]: placeholder
     };
@@ -239,6 +243,36 @@ const SmartTextArea: React.FC<{
   };
 
   const { percentage, colorClass } = getCharacterProgress();
+
+  const modes = [
+    { 
+      key: InputMode.DESCRIBE, 
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+      ), 
+      label: 'Describe'
+    },
+    { 
+      key: InputMode.PASTE, 
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ), 
+      label: 'Paste'
+    },
+    { 
+      key: InputMode.UPLOAD, 
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      ), 
+      label: 'Upload'
+    }
+  ];
 
   return (
     <div className="relative flex-1 flex flex-col bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg overflow-hidden">
@@ -259,10 +293,29 @@ const SmartTextArea: React.FC<{
         )}
       </div>
       
-      {/* Enhanced character counter with progress bar */}
-      <div className="flex items-center justify-between p-4 bg-slate-50/80 dark:bg-slate-700/50 border-t border-slate-200/50 dark:border-slate-600/30">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+      {/* Bottom bar with mode selector and character counter */}
+      <div className="flex items-center justify-between p-2 bg-slate-50/80 dark:bg-slate-700/50 border-t border-slate-200/50 dark:border-slate-600/30">
+        {/* Mode selector with icons only */}
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+          {modes.map((modeItem) => (
+            <button
+              key={modeItem.key}
+              onClick={() => onModeChange(modeItem.key)}
+              className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500 ${
+                mode === modeItem.key
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+              title={modeItem.label}
+            >
+              {modeItem.icon}
+            </button>
+          ))}
+        </div>
+        
+        {/* Character counter on the right */}
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-1 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
             <div 
               className={`h-full transition-all duration-300 ${
                 percentage > 95 ? 'bg-red-500' : percentage > 80 ? 'bg-orange-500' : 'bg-green-500'
@@ -274,12 +327,6 @@ const SmartTextArea: React.FC<{
             {charCount.toLocaleString()} / {maxChars.toLocaleString()}
           </span>
         </div>
-        
-        {charCount > 0 && (
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            ≈ {Math.ceil(charCount / 250)} minutes to read
-          </div>
-        )}
       </div>
     </div>
   );
@@ -290,7 +337,9 @@ const IntelligentFileUpload: React.FC<{
   onFileSelect: (file: File) => void;
   onTextExtracted: (text: string) => void;
   error: string | null;
-}> = ({ onFileSelect, onTextExtracted, error }) => {
+  mode: InputMode;
+  onModeChange: (mode: InputMode) => void;
+}> = ({ onFileSelect, onTextExtracted, error, mode, onModeChange }) => {
   const [fileName, setFileName] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -360,10 +409,40 @@ const IntelligentFileUpload: React.FC<{
     }
   };
 
+  const modes = [
+    { 
+      key: InputMode.DESCRIBE, 
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+      ), 
+      label: 'Describe'
+    },
+    { 
+      key: InputMode.PASTE, 
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ), 
+      label: 'Paste'
+    },
+    { 
+      key: InputMode.UPLOAD, 
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      ), 
+      label: 'Upload'
+    }
+  ];
+
   return (
-    <div className="flex-1 flex flex-col bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-white/20 dark:border-slate-700/30 rounded-2xl shadow-lg p-6">
+    <div className="relative flex-1 flex flex-col bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg overflow-hidden">
       <div 
-        className={`flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 transition-all duration-300 ${
+        className={`flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-t-2xl p-4 transition-all duration-300 ${
           isDragOver
             ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
             : 'border-slate-300 dark:border-slate-600'
@@ -414,18 +493,46 @@ const IntelligentFileUpload: React.FC<{
             </div>
           </>
         )}
+        
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-700 dark:text-red-400 text-sm text-center">{error}</p>
+          </div>
+        )}
       </div>
       
-      {error && (
-        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-red-700 dark:text-red-400 text-sm text-center">{error}</p>
+      {/* Bottom bar with mode selector - same as SmartTextArea */}
+      <div className="flex items-center justify-between p-2 bg-slate-50/80 dark:bg-slate-700/50 border-t border-slate-200/50 dark:border-slate-600/30">
+        {/* Mode selector with icons only */}
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+          {modes.map((modeItem) => (
+            <button
+              key={modeItem.key}
+              onClick={() => onModeChange(modeItem.key)}
+              className={`flex items-center justify-center w-7 h-7 rounded-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500 ${
+                mode === modeItem.key
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+              title={modeItem.label}
+            >
+              {modeItem.icon}
+            </button>
+          ))}
         </div>
-      )}
+        
+        {/* Right side - placeholder to match SmartTextArea layout */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Upload Mode
+          </span>
+        </div>
+      </div>
     </div>
   );
 };
 
-export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) => {
+export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error, initialPrompt, initialInputMode }) => {
   const [mode, setMode] = useState<InputMode>(InputMode.DESCRIBE);
   const [text, setText] = useState<string>('');
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -435,6 +542,14 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
     level: 'intermediate',
     generationMode: GenerationMode.FLASHCARDS
   });
+
+  // Restore initial prompt and input mode if provided
+  React.useEffect(() => {
+    if (initialPrompt) {
+      setText(initialPrompt);
+      setMode(initialInputMode || InputMode.DESCRIBE);
+    }
+  }, [initialPrompt, initialInputMode]);
 
   const handleTextChange = (newText: string) => {
     const truncated = truncateContent(newText, 50000);
@@ -653,11 +768,6 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
         </div>
       </div>
       
-      {/* Apple-style Mode Selector */}
-      <div className="flex-shrink-0">
-        <SegmentedControl activeMode={mode} onModeChange={setMode} />
-      </div>
-
       {/* Content Area - with updated file upload */}
       <div className="flex-1 min-h-[280px] flex">
         {mode === InputMode.UPLOAD ? (
@@ -665,6 +775,8 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
             onFileSelect={handleFileSelect}
             onTextExtracted={handleTextExtracted}
             error={uploadError}
+            mode={mode}
+            onModeChange={setMode}
           />
         ) : (
           <SmartTextArea
@@ -672,6 +784,7 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
             onChange={handleTextChange}
             placeholder={placeholderText[mode]}
             mode={mode}
+            onModeChange={setMode}
           />
         )}
       </div>

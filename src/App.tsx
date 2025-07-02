@@ -8,7 +8,7 @@ import { Loader } from './components/Loader';
 import { SavedSets } from './components/SavedSets';
 import { generateContent } from './services/geminiService';
 import { StorageService } from './services/storageService';
-import { FlashcardData, FlashcardOptions, ThemeMode, SavedFlashcardSet, GenerationMode } from './types';
+import { FlashcardData, FlashcardOptions, ThemeMode, SavedFlashcardSet, GenerationMode, InputMode } from './types';
 import { QuizQuestion } from './components/QuizView';
 
 // Session storage key for current cards
@@ -24,6 +24,10 @@ const App: React.FC = () => {
   const [currentOptions, setCurrentOptions] = useState<FlashcardOptions | null>(null);
   const [showSavedSets, setShowSavedSets] = useState<boolean>(false);
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
+  
+  // Nouveau: états pour sauvegarder le prompt original et le mode d'entrée
+  const [originalPrompt, setOriginalPrompt] = useState<string>('');
+  const [currentInputMode, setCurrentInputMode] = useState<InputMode>(InputMode.DESCRIBE);
 
   // Load settings and current session on mount
   useEffect(() => {
@@ -41,10 +45,18 @@ const App: React.FC = () => {
     try {
       const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
       if (sessionData) {
-        const { savedCards, savedNotes, savedQuizQuestions, savedOptions, cardIndex = 0 } = JSON.parse(sessionData);
+        const { savedCards, savedNotes, savedQuizQuestions, savedOptions, cardIndex = 0, originalPrompt: savedPrompt, inputMode: savedInputMode } = JSON.parse(sessionData);
         
         if (savedOptions) {
           setCurrentOptions(savedOptions);
+          
+          // Restaurer le prompt original et le mode d'entrée si disponibles
+          if (savedPrompt) {
+            setOriginalPrompt(savedPrompt);
+          }
+          if (savedInputMode) {
+            setCurrentInputMode(savedInputMode);
+          }
           
           if (savedOptions.generationMode === GenerationMode.FLASHCARDS && savedCards && Array.isArray(savedCards) && savedCards.length > 0) {
             setCards(savedCards);
@@ -92,7 +104,10 @@ const App: React.FC = () => {
 
       try {
         const sessionData: any = {
-          savedOptions: currentOptions
+          savedOptions: currentOptions,
+          // Sauvegarder le prompt original et le mode d'entrée
+          originalPrompt: originalPrompt,
+          inputMode: currentInputMode
         };
 
         if (currentOptions.generationMode === GenerationMode.FLASHCARDS && cards && cards.length > 0) {
@@ -114,7 +129,7 @@ const App: React.FC = () => {
     };
 
     saveToSessionStorage();
-  }, [cards, notes, quizQuestions, currentOptions, currentCardIndex]);
+  }, [cards, notes, quizQuestions, currentOptions, currentCardIndex, originalPrompt, currentInputMode]);
 
   const handleThemeToggle = useCallback(() => {
     console.log('Theme toggle clicked, current theme:', theme);
@@ -161,7 +176,19 @@ const App: React.FC = () => {
     setCards(null);
     setNotes(null);
     setQuizQuestions(null);
-    setCurrentOptions(options);
+    
+    // Sauvegarder le prompt original et le mode d'entrée
+    setOriginalPrompt(context);
+    setCurrentInputMode(options.inputMode || InputMode.DESCRIBE);
+    
+    // Mettre à jour les options pour inclure le prompt original
+    const updatedOptions = {
+      ...options,
+      originalPrompt: context,
+      inputMode: options.inputMode || InputMode.DESCRIBE
+    };
+    
+    setCurrentOptions(updatedOptions);
     
     // Clear any previous session data when creating new content
     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -221,6 +248,10 @@ const App: React.FC = () => {
     setIsLoading(false);
     setCurrentOptions(null);
     setCurrentCardIndex(0);
+    
+    // Ne pas effacer le prompt original - c'est la clé du système !
+    // setOriginalPrompt(''); // On garde le prompt pour pouvoir le restaurer
+    // setCurrentInputMode(InputMode.DESCRIBE); // On garde le mode d'entrée aussi
     
     // Clear session data when intentionally creating new content
     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -294,7 +325,9 @@ const App: React.FC = () => {
         onCreateNew={handleCreateNew} 
         options={currentOptions ? {
           language: currentOptions.language,
-          count: currentOptions.count
+          count: currentOptions.count,
+          originalPrompt: currentOptions.originalPrompt,
+          inputMode: currentOptions.inputMode
         } : undefined}
         initialCardIndex={currentCardIndex}
         onCardIndexChange={handleCardIndexChange}
@@ -314,7 +347,12 @@ const App: React.FC = () => {
       />;
     }
 
-    return <CreationView onCreate={handleCreateContent} error={error} />;
+    return <CreationView 
+      onCreate={handleCreateContent} 
+      error={error} 
+      initialPrompt={originalPrompt}
+      initialInputMode={currentInputMode}
+    />;
   };
 
   return (
@@ -333,7 +371,7 @@ const App: React.FC = () => {
           />
           
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+            <div className="w-full max-w-full mx-auto flex-1 flex flex-col">
               {renderContent()}
             </div>
           </div>

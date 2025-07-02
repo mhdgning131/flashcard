@@ -10,6 +10,9 @@ export interface FlashcardData {
     createdAt: number; // timestamp
     language: string;
     count: number;
+    // Nouveau: sauvegarder le prompt original et le mode d'entrée
+    originalPrompt?: string;
+    inputMode?: InputMode;
   }
   
   export interface FlashcardOptions {
@@ -17,6 +20,9 @@ export interface FlashcardData {
     count: number;
     level: string;
     generationMode: GenerationMode;
+    // Nouveau: inclure le prompt original et le mode d'entrée
+    originalPrompt?: string;
+    inputMode?: InputMode;
   }
 
   export enum GenerationMode {
