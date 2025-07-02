@@ -16,6 +16,13 @@ export interface FlashcardData {
     language: string;
     count: number;
     level: string;
+    generationMode: GenerationMode;
+  }
+
+  export enum GenerationMode {
+    FLASHCARDS = 'flashcards',
+    NOTES = 'notes',
+    QUIZ = 'quiz'
   }
   
   export interface StudyStats {

@@ -378,6 +378,392 @@ DO NOT simplify anything - this is for experts with extensive education in the f
       }
     }
 
+    // Study Notes generation endpoint
+    if (url.pathname === '/api/generate-notes' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const { context, language, level } = body;
+
+        // Input validation
+        if (!context || typeof context !== 'string') {
+          return new Response(JSON.stringify({ error: 'Invalid context provided' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (context.length > 50000) {
+          return new Response(JSON.stringify({ error: 'Context too long. Please limit to 50,000 characters.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (context.trim().length < 3) {
+          return new Response(JSON.stringify({ error: 'Context too short. Please provide more detailed content.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const supportedLanguages = ['en', 'fr', 'es', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi'];
+        if (!language || !supportedLanguages.includes(language)) {
+          return new Response(JSON.stringify({ error: 'Unsupported language. Please choose from supported languages.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Validate level parameter
+        const supportedLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
+        if (!level || typeof level !== 'string' || !supportedLevels.includes(level)) {
+          return new Response(JSON.stringify({ error: 'Invalid difficulty level. Please choose from: beginner, intermediate, advanced, expert.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Rate limiting using client IP
+        const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const rateLimitKey = `rate_limit:${clientIP}`;
+        
+        if (env.RATE_LIMIT_KV) {
+          const currentCount = await env.RATE_LIMIT_KV.get(rateLimitKey);
+          if (currentCount && parseInt(currentCount) >= 10) {
+            return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+
+        // Sanitize context
+        const sanitizedContext = context.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+        // Create level-specific instruction
+        const levelInstructions = {
+          'beginner': 'Use simple, clear language with basic concepts. Create study notes with fundamental terms, basic definitions, and easy-to-understand explanations. Avoid jargon and complex terminology.',
+          'intermediate': 'Use moderate complexity with detailed explanations. Include important concepts, standard terminology, and more comprehensive definitions. Assume some background knowledge.',
+          'advanced': 'Use sophisticated concepts with in-depth explanations. Include complex terminology, detailed technical concepts, and comprehensive analysis. Assume solid background knowledge.',
+          'expert': 'Use extremely technical and specialized terminology. Create study notes with graduate-level or professional-level concepts, advanced theories, complex methodologies, and highly specialized jargon. Assume deep expertise and years of experience in the field.'
+        };
+
+        const levelInstruction = levelInstructions[level] || levelInstructions['intermediate'];
+
+        // Create the prompt for study notes generation
+        const prompt = `You are an expert educator creating comprehensive study notes for ${level.toUpperCase()} level students. Generate detailed, well-structured study notes in ${language} language about: ${sanitizedContext}
+
+DIFFICULTY LEVEL: ${level.toUpperCase()}
+LEVEL REQUIREMENTS: ${levelInstruction}
+
+Format the notes with proper Markdown formatting:
+- Use headings (# Main Topic, ## Subtopic, ### Details)
+- Use bullet points for lists
+- Use **bold** and *italic* for emphasis
+- Include examples where appropriate
+- Structure the notes in a logical flow from introduction to advanced concepts
+- Break complex ideas into manageable sections
+- Include appropriate visualizations described in text (tables, diagrams, etc.)
+
+The notes should be comprehensive yet concise, focusing on clarity and educational value.
+
+Respond with ONLY the formatted study notes in Markdown format.`;
+
+        // Call Google Gemini AI using the REST API
+        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 4096,
+            }
+          })
+        });
+
+        if (!aiResponse.ok) {
+          const errorText = await aiResponse.text();
+          console.error('Gemini API Error:', errorText);
+          throw new Error('AI service error');
+        }
+
+        const aiData = await aiResponse.json();
+        let notes = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (!notes) {
+          throw new Error('No response from AI service');
+        }
+
+        // Clean response - if notes are wrapped in Markdown code fences, remove them
+        const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+        const match = notes.match(fenceRegex);
+        if (match && match[2]) {
+          notes = match[2].trim();
+        }
+
+        // Basic sanitization
+        notes = notes.replace(/[<>]/g, '');
+
+        // Update rate limit counter
+        if (env.RATE_LIMIT_KV) {
+          const currentCount = await env.RATE_LIMIT_KV.get(rateLimitKey) || '0';
+          await env.RATE_LIMIT_KV.put(rateLimitKey, String(parseInt(currentCount) + 1), { expirationTtl: 900 }); // 15 minutes
+        }
+
+        return new Response(JSON.stringify({ notes }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+
+      } catch (error) {
+        console.error('Error generating study notes:', error);
+        
+        let errorMessage = 'An unexpected error occurred. Please try again.';
+        let statusCode = 500;
+
+        if (error.message.includes('AI service')) {
+          errorMessage = 'AI service temporarily unavailable. Please try again later.';
+          statusCode = 503;
+        } else if (error.message.includes('No response')) {
+          errorMessage = 'Unable to generate study notes from this content. Please try providing more detailed or educational content.';
+          statusCode = 400;
+        }
+
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: statusCode,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Quiz generation endpoint
+    if (url.pathname === '/api/generate-quiz' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const { context, language, count, level } = body;
+
+        // Input validation
+        if (!context || typeof context !== 'string') {
+          return new Response(JSON.stringify({ error: 'Invalid context provided' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (context.length > 50000) {
+          return new Response(JSON.stringify({ error: 'Context too long. Please limit to 50,000 characters.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (context.trim().length < 3) {
+          return new Response(JSON.stringify({ error: 'Context too short. Please provide more detailed content.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const supportedLanguages = ['en', 'fr', 'es', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi'];
+        if (!language || !supportedLanguages.includes(language)) {
+          return new Response(JSON.stringify({ error: 'Unsupported language. Please choose from supported languages.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (!count || typeof count !== 'number' || count < 5 || count > 20) {
+          return new Response(JSON.stringify({ error: 'Invalid count. Please choose between 5 and 20 quiz questions.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Validate level parameter
+        const supportedLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
+        if (!level || typeof level !== 'string' || !supportedLevels.includes(level)) {
+          return new Response(JSON.stringify({ error: 'Invalid difficulty level. Please choose from: beginner, intermediate, advanced, expert.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Rate limiting using client IP
+        const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const rateLimitKey = `rate_limit:${clientIP}`;
+        
+        if (env.RATE_LIMIT_KV) {
+          const currentCount = await env.RATE_LIMIT_KV.get(rateLimitKey);
+          if (currentCount && parseInt(currentCount) >= 10) {
+            return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+
+        // Sanitize context
+        const sanitizedContext = context.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+        // Create level-specific instruction
+        const levelInstructions = {
+          'beginner': 'Use simple, clear language with basic concepts. Create easy quiz questions with fundamental terms and basic concepts. Avoid jargon and complex terminology.',
+          'intermediate': 'Use moderate complexity with detailed explanations. Include important concepts and standard terminology. Assume some background knowledge.',
+          'advanced': 'Use sophisticated concepts with challenging questions. Include complex terminology and detailed technical concepts. Assume solid background knowledge.',
+          'expert': 'Use extremely technical and specialized terminology. Create challenging questions with graduate-level concepts, advanced theories, and specialized jargon. Assume deep expertise in the field.'
+        };
+
+        const levelInstruction = levelInstructions[level] || levelInstructions['intermediate'];
+
+        // Create the prompt for quiz generation
+        const prompt = `You are an expert educator creating multiple-choice quiz questions for ${level.toUpperCase()} level students. Generate exactly ${count} quiz questions in ${language} language about: ${sanitizedContext}
+
+DIFFICULTY LEVEL: ${level.toUpperCase()}
+LEVEL REQUIREMENTS: ${levelInstruction}
+
+For each question:
+1. Create a clear, specific question
+2. Provide exactly 4 answer options (labeled 0-3)
+3. Indicate the correct answer (as an index 0-3)
+4. Include a brief explanation of why the answer is correct
+
+Respond ONLY with a valid JSON array in this exact format:
+[
+  {
+    "question": "What is X?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": 2,
+    "explanation": "Option C is correct because..."
+  }
+]
+
+The quiz questions MUST match the ${level} difficulty level precisely.`;
+
+        // Call Google Gemini AI using the REST API
+        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 4096,
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (!aiResponse.ok) {
+          const errorText = await aiResponse.text();
+          console.error('Gemini API Error:', errorText);
+          throw new Error('AI service error');
+        }
+
+        const aiData = await aiResponse.json();
+        let jsonStr = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (!jsonStr) {
+          throw new Error('No response from AI service');
+        }
+
+        // Clean and parse JSON response
+        const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+        const match = jsonStr.match(fenceRegex);
+        if (match && match[2]) {
+          jsonStr = match[2].trim();
+        }
+
+        const jsonStartMatch = jsonStr.match(/\[.*\]/s);
+        if (jsonStartMatch) {
+          jsonStr = jsonStartMatch[0];
+        }
+
+        jsonStr = jsonStr
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+          .replace(/,(\s*[}\]])/g, '$1')
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
+          .replace(/:\s*'([^']*?)'/g, ': "$1"');
+
+        let parsedData;
+        try {
+          parsedData = JSON.parse(jsonStr);
+        } catch (parseError) {
+          console.error('JSON Parse Error:', parseError);
+          throw new Error('Failed to parse AI response');
+        }
+
+        if (!Array.isArray(parsedData)) {
+          throw new Error("AI response is not an array");
+        }
+
+        const validQuestions = parsedData.filter(item => 
+          item && 
+          typeof item === 'object' && 
+          typeof item.question === 'string' && 
+          Array.isArray(item.options) &&
+          item.options.length === 4 &&
+          typeof item.correctAnswer === 'number' &&
+          item.correctAnswer >= 0 &&
+          item.correctAnswer < 4 &&
+          typeof item.explanation === 'string'
+        );
+
+        if (validQuestions.length === 0) {
+          throw new Error("No valid quiz questions found in AI response");
+        }
+
+        const sanitizedQuestions = validQuestions.slice(0, count).map(q => ({
+          question: q.question.trim().substring(0, 500).replace(/[<>]/g, ''),
+          options: q.options.map(opt => opt.trim().substring(0, 300).replace(/[<>]/g, '')),
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation.trim().substring(0, 1000).replace(/[<>]/g, '')
+        }));
+
+        // Update rate limit counter
+        if (env.RATE_LIMIT_KV) {
+          const currentCount = await env.RATE_LIMIT_KV.get(rateLimitKey) || '0';
+          await env.RATE_LIMIT_KV.put(rateLimitKey, String(parseInt(currentCount) + 1), { expirationTtl: 900 }); // 15 minutes
+        }
+
+        return new Response(JSON.stringify({ questions: sanitizedQuestions }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+
+      } catch (error) {
+        console.error('Error generating quiz:', error);
+        
+        let errorMessage = 'An unexpected error occurred. Please try again.';
+        let statusCode = 500;
+
+        if (error.message.includes('AI service')) {
+          errorMessage = 'AI service temporarily unavailable. Please try again later.';
+          statusCode = 503;
+        } else if (error.message.includes('JSON') || error.message.includes('parse')) {
+          errorMessage = 'The AI generated an invalid response. Please try rephrasing your input or try again.';
+        } else if (error.message.includes('No valid quiz')) {
+          errorMessage = 'Unable to generate valid quiz questions from this content. Please try providing more detailed or educational content.';
+          statusCode = 400;
+        }
+
+        return new Response(JSON.stringify({ error: errorMessage }), {
+          status: statusCode,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     // 404 for other routes
     return new Response(JSON.stringify({ error: 'Endpoint not found' }), {
       status: 404,

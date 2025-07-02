@@ -1,9 +1,18 @@
-import { AppSettings, StudyStats, ThemeMode, FlashcardData, SavedFlashcardSet } from '../types';
+import { AppSettings, StudyStats, ThemeMode, FlashcardData, SavedFlashcardSet, GenerationMode } from '../types';
+
+interface SavedNote {
+  id: string;
+  name: string;
+  content: string;
+  createdAt: number;
+  language: string;
+}
 
 const STORAGE_KEYS = {
   SETTINGS: 'flashcards_settings',
   STATS: 'flashcards_stats',
   SAVED_SETS: 'flashcards_saved_sets',
+  SAVED_NOTES: 'flashcards_saved_notes',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -110,6 +119,54 @@ export class StorageService {
     
     if (newSets.length !== sets.length) {
       localStorage.setItem(STORAGE_KEYS.SAVED_SETS, JSON.stringify(newSets));
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Notes functionality
+  static getSavedNotes(): SavedNote[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.SAVED_NOTES);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static saveNotes(name: string, content: string, language: string): SavedNote {
+    const notes = this.getSavedNotes();
+    
+    // Create new note with unique ID
+    const newNote: SavedNote = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+      name,
+      content,
+      createdAt: Date.now(),
+      language
+    };
+    
+    // Add to beginning of array (newest first)
+    notes.unshift(newNote);
+    
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEYS.SAVED_NOTES, JSON.stringify(notes));
+    
+    return newNote;
+  }
+
+  static getNote(id: string): SavedNote | null {
+    const notes = this.getSavedNotes();
+    return notes.find(note => note.id === id) || null;
+  }
+
+  static deleteNote(id: string): boolean {
+    const notes = this.getSavedNotes();
+    const newNotes = notes.filter(note => note.id !== id);
+    
+    if (newNotes.length !== notes.length) {
+      localStorage.setItem(STORAGE_KEYS.SAVED_NOTES, JSON.stringify(newNotes));
       return true;
     }
     

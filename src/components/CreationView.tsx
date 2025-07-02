@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { InputMode, FlashcardOptions, SUPPORTED_LANGUAGES, FLASHCARD_COUNT_OPTIONS, DIFFICULTY_LEVELS } from '../types';
+import { InputMode, FlashcardOptions, SUPPORTED_LANGUAGES, FLASHCARD_COUNT_OPTIONS, DIFFICULTY_LEVELS, GenerationMode } from '../types';
 import { validateContent, sanitizeContent, truncateContent, processUploadedFile, validateUploadedFile } from '../utils/sanitization';
 
 // Extend the Window interface to include the trackFlashcardEvent function
@@ -432,7 +432,8 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
   const [options, setOptions] = useState<FlashcardOptions>({
     language: 'en',
     count: 10,
-    level: 'intermediate'
+    level: 'intermediate',
+    generationMode: GenerationMode.FLASHCARDS
   });
 
   const handleTextChange = (newText: string) => {
@@ -513,8 +514,40 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
       {/* Compact Options Bar - Reduced padding and spacing */}
       <div className="flex-shrink-0">
         <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/30 dark:border-slate-700/30 rounded-xl shadow-sm p-4">
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-4">
-            {/* Language Selector - More compact */}
+          <div className="flex flex-wrap justify-center gap-4">
+            {/* Generation Mode Selector - New */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                  <svg className="w-3 h-3 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Mode</span>
+              </div>
+              
+              <div className="relative">
+                <select
+                  value={options.generationMode}
+                  onChange={(e) => setOptions({ ...options, generationMode: e.target.value as GenerationMode })}
+                  className="appearance-none bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white border border-slate-200/50 dark:border-slate-600/50 rounded-lg px-3 py-2 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-400/50 focus:border-transparent transition-all duration-200 cursor-pointer hover:bg-white dark:hover:bg-slate-700"
+                >
+                  <option value={GenerationMode.FLASHCARDS}>Flashcards</option>
+                  <option value={GenerationMode.NOTES}>Study Notes</option>
+                  <option value={GenerationMode.QUIZ}>Quiz</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Compact Divider */}
+            <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+
+            {/* Language Selector */}
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
                 <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
@@ -546,9 +579,9 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
             </div>
 
             {/* Compact Divider */}
-            <div className="hidden lg:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+            <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
 
-            {/* Level Selector - New */}
+            {/* Level Selector */}
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
                 <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
@@ -580,38 +613,42 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
             </div>
 
             {/* Compact Divider */}
-            <div className="hidden lg:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
+            <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-slate-600"></div>
 
-            {/* Card Count Selector - More compact */}
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-                  <svg className="w-3 h-3 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H5a2 2 0 01-2-2v2M7 7h10" />
-                  </svg>
+            {/* Card Count Selector - Hide for Notes generation mode */}
+            {options.generationMode !== GenerationMode.NOTES && (
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                    <svg className="w-3 h-3 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H5a2 2 0 01-2-2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    {options.generationMode === GenerationMode.FLASHCARDS ? "Cards" : "Questions"}
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Cards</span>
-              </div>
-              
-              <div className="relative">
-                <select
-                  value={options.count}
-                  onChange={(e) => setOptions({ ...options, count: parseInt(e.target.value) })}
-                  className="appearance-none bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white border border-slate-200/50 dark:border-slate-600/50 rounded-lg px-3 py-2 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-400/50 focus:border-transparent transition-all duration-200 cursor-pointer hover:bg-white dark:hover:bg-slate-700"
-                >
-                  {FLASHCARD_COUNT_OPTIONS.map((count) => (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                
+                <div className="relative">
+                  <select
+                    value={options.count}
+                    onChange={(e) => setOptions({ ...options, count: parseInt(e.target.value) })}
+                    className="appearance-none bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white border border-slate-200/50 dark:border-slate-600/50 rounded-lg px-3 py-2 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-400/50 focus:border-transparent transition-all duration-200 cursor-pointer hover:bg-white dark:hover:bg-slate-700"
+                  >
+                    {FLASHCARD_COUNT_OPTIONS.map((count) => (
+                      <option key={count} value={count}>
+                        {count}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -668,7 +705,11 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <span>Generate Flashcards</span>
+            <span>
+              {options.generationMode === GenerationMode.FLASHCARDS && "Generate Flashcards"}
+              {options.generationMode === GenerationMode.NOTES && "Create Study Notes"}
+              {options.generationMode === GenerationMode.QUIZ && "Generate Quiz"}
+            </span>
           </span>
           
           {/* Apple-style shimmer effect */}
@@ -682,7 +723,11 @@ export const CreationView: React.FC<CreationViewProps> = ({ onCreate, error }) =
           <div className="text-center">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
               {hasGoodContent 
-                ? "Ready to create amazing flashcards"
+                ? options.generationMode === GenerationMode.NOTES
+                  ? "Ready to create comprehensive study notes"
+                  : options.generationMode === GenerationMode.QUIZ
+                    ? "Ready to generate interactive quiz questions"
+                    : "Ready to create amazing flashcards"
                 : text.trim().length >= 3
                   ? "Add more detail for better results"
                   : "Start by adding your content"

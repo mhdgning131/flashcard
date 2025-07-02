@@ -1,18 +1,23 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { CreationView } from './components/CreationView';
 import { FlashcardView } from './components/FlashcardView';
+import { NotesView } from './components/NotesView';
+import { QuizView } from './components/QuizView';
 import { Header } from './components/Header';
 import { Loader } from './components/Loader';
 import { SavedSets } from './components/SavedSets';
-import { generateFlashcards } from './services/geminiService';
+import { generateContent } from './services/geminiService';
 import { StorageService } from './services/storageService';
-import { FlashcardData, FlashcardOptions, ThemeMode, SavedFlashcardSet } from './types';
+import { FlashcardData, FlashcardOptions, ThemeMode, SavedFlashcardSet, GenerationMode } from './types';
+import { QuizQuestion } from './components/QuizView';
 
 // Session storage key for current cards
 const SESSION_STORAGE_KEY = 'flashcards_current_session';
 
 const App: React.FC = () => {
   const [cards, setCards] = useState<FlashcardData[] | null>(null);
+  const [notes, setNotes] = useState<string | null>(null);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeMode>('dark');
@@ -36,12 +41,18 @@ const App: React.FC = () => {
     try {
       const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
       if (sessionData) {
-        const { savedCards, savedOptions, cardIndex = 0 } = JSON.parse(sessionData);
-        if (savedCards && Array.isArray(savedCards) && savedCards.length > 0) {
-          setCards(savedCards);
-          setCurrentCardIndex(cardIndex);
-          if (savedOptions) {
-            setCurrentOptions(savedOptions);
+        const { savedCards, savedNotes, savedQuizQuestions, savedOptions, cardIndex = 0 } = JSON.parse(sessionData);
+        
+        if (savedOptions) {
+          setCurrentOptions(savedOptions);
+          
+          if (savedOptions.generationMode === GenerationMode.FLASHCARDS && savedCards && Array.isArray(savedCards) && savedCards.length > 0) {
+            setCards(savedCards);
+            setCurrentCardIndex(cardIndex);
+          } else if (savedOptions.generationMode === GenerationMode.NOTES && savedNotes) {
+            setNotes(savedNotes);
+          } else if (savedOptions.generationMode === GenerationMode.QUIZ && savedQuizQuestions && Array.isArray(savedQuizQuestions)) {
+            setQuizQuestions(savedQuizQuestions);
           }
         }
       }
@@ -74,20 +85,36 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Save cards to session storage whenever they change
+  // Save current state to session storage when it changes
   useEffect(() => {
-    if (cards && cards.length > 0) {
+    const saveToSessionStorage = () => {
+      if (!currentOptions) return;
+
       try {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
-          savedCards: cards,
-          savedOptions: currentOptions,
-          cardIndex: currentCardIndex
-        }));
+        const sessionData: any = {
+          savedOptions: currentOptions
+        };
+
+        if (currentOptions.generationMode === GenerationMode.FLASHCARDS && cards && cards.length > 0) {
+          sessionData.savedCards = cards;
+          sessionData.cardIndex = currentCardIndex;
+        } else if (currentOptions.generationMode === GenerationMode.NOTES && notes) {
+          sessionData.savedNotes = notes;
+        } else if (currentOptions.generationMode === GenerationMode.QUIZ && quizQuestions && quizQuestions.length > 0) {
+          sessionData.savedQuizQuestions = quizQuestions;
+        } else {
+          // Don't save if we don't have valid content
+          return;
+        }
+
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
       } catch (error) {
         console.error('Error saving session:', error);
       }
-    }
-  }, [cards, currentOptions, currentCardIndex]);
+    };
+
+    saveToSessionStorage();
+  }, [cards, notes, quizQuestions, currentOptions, currentCardIndex]);
 
   const handleThemeToggle = useCallback(() => {
     console.log('Theme toggle clicked, current theme:', theme);
@@ -128,24 +155,44 @@ const App: React.FC = () => {
     }, 100);
   }, [theme]);
 
-  const handleCreateFlashcards = useCallback(async (context: string, options: FlashcardOptions) => {
+  const handleCreateContent = useCallback(async (context: string, options: FlashcardOptions) => {
     setIsLoading(true);
     setError(null);
     setCards(null);
+    setNotes(null);
+    setQuizQuestions(null);
     setCurrentOptions(options);
     
-    // Clear any previous session data when creating new cards
+    // Clear any previous session data when creating new content
     localStorage.removeItem(SESSION_STORAGE_KEY);
     
     try {
-      const generatedCards = await generateFlashcards(context, options);
-      if (generatedCards.length === 0) {
-        setError("The AI couldn't generate flashcards for this topic. Please try being more specific.");
-      } else {
-        setCards(generatedCards);
+      const generatedContent = await generateContent(context, options);
+      
+      if (options.generationMode === GenerationMode.FLASHCARDS) {
+        const flashcardData = generatedContent as FlashcardData[];
+        if (flashcardData.length === 0) {
+          setError("The AI couldn't generate flashcards for this topic. Please try being more specific.");
+        } else {
+          setCards(flashcardData);
+        }
+      } else if (options.generationMode === GenerationMode.NOTES) {
+        const notesData = generatedContent as string;
+        if (!notesData || notesData.trim().length === 0) {
+          setError("The AI couldn't generate study notes for this topic. Please try being more specific.");
+        } else {
+          setNotes(notesData);
+        }
+      } else if (options.generationMode === GenerationMode.QUIZ) {
+        const quizData = generatedContent as QuizQuestion[];
+        if (quizData.length === 0) {
+          setError("The AI couldn't generate quiz questions for this topic. Please try being more specific.");
+        } else {
+          setQuizQuestions(quizData);
+        }
       }
     } catch (e: any) {
-      console.error('Flashcard generation error:', e);
+      console.error('Content generation error:', e);
       
       // Handle specific error types with user-friendly messages
       if (e.message?.includes('Too many requests')) {
@@ -159,7 +206,7 @@ const App: React.FC = () => {
       } else if (e.message?.includes('network') || e.message?.includes('fetch')) {
         setError('Network error. Please check your connection and try again.');
       } else {
-        setError('An error occurred while generating flashcards. Please try again.');
+        setError('An error occurred while generating content. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -168,12 +215,14 @@ const App: React.FC = () => {
 
   const handleCreateNew = useCallback(() => {
     setCards(null);
+    setNotes(null);
+    setQuizQuestions(null);
     setError(null);
     setIsLoading(false);
     setCurrentOptions(null);
     setCurrentCardIndex(0);
     
-    // Clear session data when intentionally creating a new set
+    // Clear session data when intentionally creating new content
     localStorage.removeItem(SESSION_STORAGE_KEY);
   }, []);
 
@@ -187,7 +236,8 @@ const App: React.FC = () => {
     setCurrentOptions({
       language: set.language,
       count: set.count,
-      level: 'intermediate' // Default level as it's not stored
+      level: 'intermediate', // Default level as it's not stored
+      generationMode: GenerationMode.FLASHCARDS // Saved sets are always flashcards for now
     });
     setShowSavedSets(false);
     
@@ -198,7 +248,8 @@ const App: React.FC = () => {
         savedOptions: {
           language: set.language,
           count: set.count,
-          level: 'intermediate'
+          level: 'intermediate',
+          generationMode: GenerationMode.FLASHCARDS
         },
         cardIndex: 0 // Start from the first card
       }));
@@ -226,17 +277,18 @@ const App: React.FC = () => {
           </div>
           <div className="mt-8 space-y-3">
             <h2 className="text-2xl font-light text-slate-900 dark:text-white tracking-tight">
-              Crafting your study set
+              Crafting your study material
             </h2>
             <p className="text-slate-500 dark:text-slate-400 font-light max-w-md mx-auto leading-relaxed">
-              Our AI is analyzing your content and creating personalized flashcards for optimal learning.
+              Our AI is analyzing your content and creating personalized study materials for optimal learning.
             </p>
           </div>
         </div>
       );
     }
 
-    if (cards) {
+    // Render based on the current generation mode
+    if (currentOptions?.generationMode === GenerationMode.FLASHCARDS && cards) {
       return <FlashcardView 
         cards={cards} 
         onCreateNew={handleCreateNew} 
@@ -247,9 +299,22 @@ const App: React.FC = () => {
         initialCardIndex={currentCardIndex}
         onCardIndexChange={handleCardIndexChange}
       />;
+    } else if (currentOptions?.generationMode === GenerationMode.NOTES && notes) {
+      return <NotesView 
+        content={notes} 
+        onCreateNew={handleCreateNew} 
+        options={currentOptions ? {
+          language: currentOptions.language
+        } : undefined}
+      />;
+    } else if (currentOptions?.generationMode === GenerationMode.QUIZ && quizQuestions) {
+      return <QuizView 
+        questions={quizQuestions} 
+        onCreateNew={handleCreateNew} 
+      />;
     }
 
-    return <CreationView onCreate={handleCreateFlashcards} error={error} />;
+    return <CreationView onCreate={handleCreateContent} error={error} />;
   };
 
   return (
@@ -262,8 +327,8 @@ const App: React.FC = () => {
           <Header 
             theme={theme}
             onThemeToggle={handleThemeToggle}
-            showBackButton={!!cards}
-            onBackClick={cards ? handleCreateNew : undefined}
+            showBackButton={!!cards || !!notes || !!quizQuestions}
+            onBackClick={cards || notes || quizQuestions ? handleCreateNew : undefined}
             onShowSavedSets={handleToggleSavedSets}
           />
           
